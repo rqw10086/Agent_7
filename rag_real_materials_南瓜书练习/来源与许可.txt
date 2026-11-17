@@ -1,0 +1,11 @@
+原文：《南瓜书》1.9.9，Datawhale，主编 Sm1les、archwalker、jbb0523。
+项目：https://github.com/datawhalechina/pumpkin-book
+本包 PDF 来自 Datawhale llm-universe 课程知识库：
+https://raw.githubusercontent.com/datawhalechina/llm-universe/main/data_base/knowledge_db/pumkin_book/pumpkin_book.pdf
+PDF 前言的版权声明（PDF 第 2 页）明确采用：
+知识共享署名—非商业性使用—相同方式共享 4.0 国际许可（CC BY-NC-SA 4.0）。
+协议：https://creativecommons.org/licenses/by-nc-sa/4.0/
+PDF 未改动，原名保留。用途为非商业学习资料，继续再分发请保留署名及相同许可，商业使用须另行确认。
+本包中文开工说明由 Grok Bot 整理，亦以 CC BY-NC-SA 4.0 提供。
+课程主仓库未找到独立 LICENSE，因此没有复制分发它的 notebook 或代码，仅提供原始链接。
+SHA256: 371e426890ae8246bca319e433b1d54d0610f015de42df8385cd8eeb610225b1

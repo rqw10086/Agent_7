@@ -10,6 +10,7 @@
 | ---- | ---- |
 | [ReAct.py](./ReAct.py) | Agent 主体：工具注册、提示词构建、Action 解析、工具执行与循环控制 |
 | [家庭成员兴趣爱好1.md](./家庭成员兴趣爱好1.md) | 供 `read_hobbies_file` 工具读取的兴趣爱好文档 |
+| [rag_real_materials_南瓜书练习/](./rag_real_materials_南瓜书练习/) | 用原版《南瓜书》PDF 练 RAG 的材料包与提取脚本 |
 
 ## 环境要求
 
@@ -68,6 +69,27 @@ def query_weather(city: str) -> str:
 ```
 
 文档字符串会直接进入工具清单，写清楚参数含义能明显提高模型选对工具的概率。
+
+## RAG 材料提取流程（rag_real_materials_南瓜书练习）
+
+用原版《南瓜书》PDF 当被检索的知识库，先做「把文档变成可检索文本」这一步。详见该目录下的 [README_先读我.md](./rag_real_materials_南瓜书练习/README_先读我.md) 与 [来源与许可.txt](./rag_real_materials_南瓜书练习/来源与许可.txt)。
+
+```bash
+pip install pymupdf
+# 脚本内用的是相对仓库上一级的路径，需在 LocalAgent 目录下运行
+python human_code/rag_real_materials_南瓜书练习/extract_pages.py
+```
+
+流程（[extract_pages.py](./rag_real_materials_南瓜书练习/extract_pages.py)）：
+
+1. `pymupdf as fitz` 导入，兼容旧包名 `fitz`。
+2. `fitz.open(...)` 打开 PDF，`page.get_text("text")` 逐页提取正文，`enumerate(doc, start=1)` 保留从 1 开始的 PDF 页码，页码写进每条记录而不是只打印一次。
+3. 打印总页数（196 页），并取出 `pages[17]` 即 PDF 第 18 页（纸面第 5 页，2.2「评估方法」）作为第一题的证据页。
+4. `json.dump(..., ensure_ascii=False, indent=2)` 写出 `pages.json`，中文保持可读。
+
+后续按说明继续做 500 字/重叠 50 字的切分、jieba + rank-bm25 检索，以及自写五道题标注证据页后统计 hit@3。
+
+`pumpkin_book.pdf`（约 4 MB，CC BY-NC-SA 4.0）体积较大且已写入 `.gitignore`，未入库；按说明中的原始链接自行下载，再分发需保留署名与相同许可。
 
 ## 已知限制
 
