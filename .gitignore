@@ -2,7 +2,12 @@ __pycache__/
 *.py[cod]
 .DS_Store
 .venv/
+.venv-slice/
 .env
+.mineru_markdown_tmp.md
+# MinerU doclib 在本目录生成的服务产物
+blobs/
+.mineru-service.lock
 
 # 原版《南瓜书》PDF 体积较大（约 4 MB），不入库，按 README_先读我.md 中的原始链接自行下载
 pumpkin_book.pdf

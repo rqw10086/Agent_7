@@ -87,6 +87,52 @@ python human_code/rag_real_materials_南瓜书练习/extract_pages.py
 3. 打印总页数（196 页），并取出 `pages[17]` 即 PDF 第 18 页（纸面第 5 页，2.2「评估方法」）作为第一题的证据页。
 4. `json.dump(..., ensure_ascii=False, indent=2)` 写出 `pages.json`，中文保持可读。
 
+### 三种解析库的切片对比
+
+[chunk_three_ways.py](./rag_real_materials_南瓜书练习/chunk_three_ways.py) 用同一本 PDF 分别跑 MinerU、Docling、PyMuPDF4LLM，结果各存一个文件：`chunks_mineru.json`、`chunks_docling.json`、`chunks_pymupdf4llm.json`。
+
+需要独立环境（三个包都会拉 torch/onnxruntime，不要装进主 `.venv`）：
+
+```bash
+cd /Users/ruanwen/PycharmProjects/LocalAgent
+uv venv --python 3.13 human_code/.venv-slice
+uv pip install --python human_code/.venv-slice/bin/python mineru docling pymupdf4llm
+human_code/.venv-slice/bin/mineru-kit models download --tier basic --small-backend torch
+human_code/.venv-slice/bin/mineru config set parse_server.local.managed_tier basic
+human_code/.venv-slice/bin/mineru config set parse_server.local.mode managed
+
+# 全书 196 页，或先用 --pages 18-19 快速验证
+human_code/.venv-slice/bin/python human_code/rag_real_materials_南瓜书练习/chunk_three_ways.py
+```
+
+三个方案对「切片」的处理并不等价，横向比较时要记住差异：
+
+| 方案 | 解析 | 切块 | 页码来源 |
+| ---- | ---- | ---- | ---- |
+| MinerU | CLI 输出整页 markdown（公式转 LaTeX、表格还原、页眉页脚剔除） | 自身不切块，脚本按 `<!-- page N of M -->` 还原页码后复用贪心切句逻辑 | 页标记 |
+| Docling | 自带版面/表格模型 | `HybridChunker(max_tokens=400)`，块可跨页 | `doc_items[].prov[].page_no` |
+| PyMuPDF4LLM | layout 模式（GNN 版面 + RapidOCR） | 自带 `to_chunks(max_tokens=400)`，块可跨页 | `metadata.page_start/page_end` |
+
+全书 196 页实测（目标片长约 400 字，Apple Silicon 本机）：
+
+| 方案 | 片数 | 总字符 | 平均片长 | 最长片 | 用时 | 备注 |
+| ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| MinerU | 2103 | 652873 | 310 | 400 | 1075s | 正文最干净（公式转 LaTeX、表格还原），但最慢，且片数最多 |
+| Docling | 735 | 247027 | 336 | 1423 | 68s | 目录页等表格整块保留，所以片数最少 |
+| PyMuPDF4LLM | 949 | 294235 | 310 | 4558 | 34s | 最快；目录页表格整块保留，故最长片偏大 |
+
+三者都完整覆盖 196 页，第 18 页「留出法 / 交叉验证法 / 自助法」这句证据在三个方案里都落在同一个片内（`mineru-p018-c04`、`docling-p018-c04`、`pymupdf4llm-p018-c05`）。Docling 与 PyMuPDF4LLM 分别有 105、99 个跨页片，做「按页引用」时要用 `page_start`/`page_end` 而不是单一 `pdf_page`。
+
+几个踩过的坑：
+
+- MinerU 4.x 的 `parse` 走本地服务，必须先 `mineru server start`；`config set parse_server.local.mode managed` 会先校验模型文件是否就绪，所以顺序是「下模型 → 设 tier → 设 mode」。
+- `mineru parse --json` 写出的文件其实是 markdown，页码结构只在 `<!-- page N of M -->` 注释里；`--no-marker` 会连页码一起删掉。
+- `pymupdf4llm.to_chunks` 不开 `use_layout(True)` 会抛 `NotImplementedError`；它的 `pages` 参数是 0 基。
+- Docling 的 API 名和直觉不一致：`ConversionResult.document`（不是 `.result`）、`export_to_markdown`、`DocItem.prov`（不是 `.provenance`）。
+- MinerU 会把公式还原成 LaTeX 源码，第 18 页 7281 字符里 5633 是公式、正文只有 1648（`pages.json` 同页 1577）。也就是说它的 400 字预算大量被公式吃掉，公式密集页的正文反而被切得更碎（第 18 页 20 片 vs Docling 5 片）。全书总字符 65 万 vs `pages.json` 的 29 万，差值主要来自 LaTeX 与表格 markdown。
+- 一次请求覆盖整本书会让 parse-server 在健康检查时被重启，CLI 轮询随即断连（`Local parse-server transport failed ... ConnectError`）。脚本按 20 页一批解析并带 3 次重试。
+- PyMuPDF4LLM 的 `max_tokens` 默认按「4 字符 ≈ 1 token」估算，中文约 1 字符 ≈ 1 token，不传 `tokenizer` 时片长会是另外两个方案的约 4 倍。脚本传 `tokenizer=lambda text: len(text)` 统一口径。
+
 后续按说明继续做 500 字/重叠 50 字的切分、jieba + rank-bm25 检索，以及自写五道题标注证据页后统计 hit@3。
 
 `pumpkin_book.pdf`（约 4 MB，CC BY-NC-SA 4.0）体积较大且已写入 `.gitignore`，未入库；按说明中的原始链接自行下载，再分发需保留署名与相同许可。
