@@ -8,7 +8,7 @@ except ImportError:
     # 兼容旧版本：只提供 fitz 这个模块名
     import fitz  # type: ignore[import-not-found]
 
-with fitz.open("human_code/rag_real_materials_南瓜书练习/pumpkin_book.pdf") as doc:
+with fitz.open("rag_real_materials_南瓜书练习/pumpkin_book.pdf") as doc:
     pages = []
     for page_number, page in enumerate(doc, start=1):
         pages.append({
@@ -27,13 +27,13 @@ if len(pages) >= 18:
 # 3. 把 pages 保存为 JSON 文件，保留可读中文
 
 
-with open("human_code/rag_real_materials_南瓜书练习/pages.json", "w", encoding="utf-8") as f:
+with open("rag_real_materials_南瓜书练习/pages.json", "w", encoding="utf-8") as f:
     json.dump(pages, f, ensure_ascii=False, indent=2)
 
 
 # ============ 切片实验（起点参数，不是最佳参数）============
 # 1. 读入 JSON，逐页处理，不做跨页拼接
-with open("human_code/rag_real_materials_南瓜书练习/pages.json", "r", encoding="utf-8") as f:
+with open("rag_real_materials_南瓜书练习/pages.json", "r", encoding="utf-8") as f:
     pages = json.load(f)
 
 # 2. 每片目标长度：约 400 字，优先在句号/换行处断开
@@ -91,7 +91,7 @@ for page in pages:
         })
 
 # 4. 保存 chunks.json，并检查第 18 页的片段是否被切散
-with open("human_code/rag_real_materials_南瓜书练习/chunks.json", "w", encoding="utf-8") as f:
+with open("rag_real_materials_南瓜书练习/chunks.json", "w", encoding="utf-8") as f:
     json.dump(chunks, f, ensure_ascii=False, indent=2)
 
 print(f"总片段数: {len(chunks)}")
