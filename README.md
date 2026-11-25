@@ -137,6 +137,44 @@ human_code/.venv-slice/bin/python human_code/rag_real_materials_南瓜书练习/
 
 `pumpkin_book.pdf`（约 4 MB，CC BY-NC-SA 4.0）体积较大且已写入 `.gitignore`，未入库；按说明中的原始链接自行下载，再分发需保留署名与相同许可。
 
+### BM25 检索与问答
+
+[search_bm25.py](./rag_real_materials_南瓜书练习/search_bm25.py) 用 `chunks.json`（857 片）做 BM25 检索，`tokenize` / `load_chunks` / `build_index` / `search` 是同一套分词，语料与查询不能各用一套。
+
+```bash
+python search_bm25.py "哪三种模型评估方法？"          # 只检索，打印前 3 条
+python search_bm25.py --rag "书中介绍了哪三种模型评估方法？"   # 检索前 3 条后交给模型作答
+```
+
+`--rag` 走 `answer_with_rag`：取 `search()` 的前 3 条（带 `text`、`pdf_page`、`chunk_id`、`score`），连同问题交给 `call_llm`。提示词要求只依据给定片段、标明来源页码、证据不足时明确说「资料不足，无法回答」。模型接口与 [ReAct.py](./ReAct.py) 一致（`OpenAI()` + `base_url` 指向 `18082`），没有搬 ReAct 的工具循环。
+
+### 向量检索与 BM25 对照
+
+[embed_chunks.py](./rag_real_materials_南瓜书练习/embed_chunks.py) 把 857 片批量向量化（batch 32，实测约 700s），按行 L2 归一化后存 `chunk_vectors.npy`（857×1024 float32）与 `chunk_vector_ids.json`。这两个产物加 `chunk_vectors.npz` 体积约 3.4 MB，已写入 `.gitignore`，可用脚本重算。
+
+[compare_bm25_vs_vector.py](./rag_real_materials_南瓜书练习/compare_bm25_vs_vector.py) 对同一批问题分别跑 BM25（复用 `search`，`top_k=3`）与 NumPy 余弦检索（`matrix @ query_vector`），两边证据各自喂给同一个 `call_llm`，便于横向比较。
+
+[BM25_向量_RRF对照.ipynb](./rag_real_materials_南瓜书练习/BM25_向量_RRF对照.ipynb) 在此基础上加 RRF（倒数排名融合，`1/(60+名次)`）：BM25 分数是 19 量级、余弦相似度是 0.6 量级，不是同一把尺子，不能直接相加，只看名次才叫融合。笔记第一格从 `human_code/.env` 读 `EMBED_BASE_URL` / `EMBED_API_MODEL`，必须在定义这两个变量的格子之前运行。
+
+### 本地服务与环境变量
+
+`.env` 已在 `.gitignore` 内，不入库；需要自行填写：
+
+| 变量 | 值 | 说明 |
+| ---- | ---- | ---- |
+| `EMBED_BASE_URL` | `http://192.168.124.18:8090/v1` | embedding 端点，OpenAI 兼容，`/v1/embeddings` 与 `/embeddings` 都可用 |
+| `EMBED_API_MODEL` | `qwen3-embedding-0.6b` | 输出 1024 维 |
+| `EMBEDDING_API_KEY` / `OPENAI_API_KEY` | 8090 的 key | `OpenAI()` 只认 `OPENAI_API_KEY`，8090 校验它 |
+| `QDRANT_API_KEY` | Qdrant 的 key | 当前脚本用 NumPy，暂不连 Qdrant |
+
+几个实测结论：
+
+- `18082` 只有聊天模型，`/v1/embeddings` 返回 `not found`；embedding 必须打 `8090`。
+- `18082` 不校验 key，`OPENAI_API_KEY=""` 就能通过 SDK 的本地校验；`8090` 和 Qdrant 都真校验，占位值会被拒。
+- Qdrant 1.10.1：REST `6333` 检索路径是 `/collections/<name>/points/search`（少 `/points` 会 404）；gRPC 构造要写 `port=6333, grpc_port=6334, prefer_grpc=True`，写成 `port=6334` 会报 `illegal request line`。
+- 无关问题（如「小明的哥哥有什么兴趣爱好」）BM25 仍会排序给出 top3，但余弦分数只有 0.27～0.30，明显低于正常命中的 0.63～0.76，可以当「资料不足」的阈值；两种检索下模型都正确回答「资料不足，无法回答」。
+- 口语化改写的问题（「用哪几种办法检验模型表现」vs 书里的「评估方法」）BM25 会被同形词带到 2.4「比较检验」，向量检索能打到第 18 页的三种评估方法。单路都有盲区，RRF 融合在实测的第 4 题里没把目标片段带进前 3。
+
 ## 已知限制
 
 - `read_hobbies_file` 读取的文件名是 `家庭成员兴趣爱好.md`，仓库内实际文件是 `家庭成员兴趣爱好1.md`，两者不一致时该工具会抛 `FileNotFoundError`。

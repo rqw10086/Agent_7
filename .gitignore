@@ -11,3 +11,8 @@ blobs/
 
 # 原版《南瓜书》PDF 体积较大（约 4 MB），不入库，按 README_先读我.md 中的原始链接自行下载
 pumpkin_book.pdf
+
+# 向量缓存产物（约 3.4 MB），由 embed_chunks.py 或对照笔记生成，可用脚本重算，不入库
+chunk_vectors.npy
+chunk_vectors.npz
+chunk_vector_ids.json
